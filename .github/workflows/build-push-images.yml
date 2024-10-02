@@ -18,13 +18,6 @@ jobs:
       - name: Checkout forklift
         uses: actions/checkout@v4
 
-      - name: Login to quay.io with bot account
-        uses: docker/login-action@v3
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_TOKEN }}
-
       - name: Build and push images to quay.io
         run: |
           cd ${GITHUB_WORKSPACE}
