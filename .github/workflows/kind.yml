@@ -1,0 +1,22 @@
+name: Run e2e test
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v2
+
+      - name: Create k8s Kind Cluster
+        uses: helm/kind-action@v1
+
+      - name: Run virt-install
+        run: |
+          sudo apt install virt-manager
+          curl -O http://distro.ibiblio.org/damnsmall/release_candidate/dsl-4.11.rc1.iso
+          virt-install --name coreos-vm --memory 4096 --vcpus 2 --cdrom $(pwd)/dsl-4.11.rc1.iso --os-variant fedora-coreos-stable --boot hd,cdrom --network network=default 
