@@ -1,0 +1,68 @@
+name: Run e2e test
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v2
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Create k8s Kind Cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: kind
+
+      - name: Setup virt-manager
+        run: |
+          sudo apt install virt-manager sshpass
+
+      - name: Build migration-planner
+        run: |
+          DOWNLOAD_RHCOS=false make build
+
+      - name: Deploy migration-planner
+        run: |
+          make deploy-on-kind
+
+      - name: Deploy vcsim
+        run: |
+          kubectl create deployment vcsim --image=docker.io/vmware/vcsim
+          kubectl wait --for=condition=Ready pods --all --timeout=240s
+          kubectl port-forward --address 0.0.0.0 deploy/vcsim 8989:8989 &
+          kubectl port-forward --address 0.0.0.0 service/migration-planner-agent 7443:7443 &
+          kubectl port-forward --address 0.0.0.0 service/migration-planner 3443:3443 &
+
+      - name: Setup planner client
+        run: |
+          mkdir -p /home/runner/.config/planner
+          echo -e "service:\n  server: http://localhost:3443" > /home/runner/.config/planner/client.yaml
+
+      - name: Run test
+        run: |
+          bin/planner create source mysource
+          SOURCE_ID=$(bin/planner get source | awk 'NR > 1 {print $1}')
+          VCENTER_IP=$(ip addr show eth0 | grep -oP '(?<=inet\s)\d+\.\d+\.\d+\.\d+')
+          curl -v http://localhost:3443/api/v1/sources/$SOURCE_ID/image -o image.ova
+          tar xvf image.ova || true
+          sudo mv AgentVM-1.iso /var/lib/libvirt/images/agent.iso
+          rm -f image.ova
+          sudo virt-install --name coreos-vm --memory 4096 --vcpus 2 --cdrom /var/lib/libvirt/images/agent.iso --os-variant fedora-coreos-stable --boot cdrom --network network=default --disk size=1 --wait 0
+          sleep 30
+          sudo virsh domifaddr coreos-vm
+          VM_IP=$(sudo virsh domifaddr coreos-vm | awk 'NR > 2 {print $4}' | head -n 1 | cut -d'/' -f1)
+          sshpass -p 123456 ssh -o StrictHostKeyChecking=no core@${VM_IP} systemctl restart --user planner-agent || true
+          while true; do [ $(curl -s "http://localhost:3443/api/v1/sources/${SOURCE_ID}" | jq -r .credentialUrl | grep http) ] && break || curl -s "http://localhost:3443/api/v1/sources/${SOURCE_ID}"; sleep 2; done
+          curl -H 'Content-type: application/json' -X PUT -d "{\"url\": \"https://${VCENTER_IP}:8989/sdk\", \"username\": \"user\", \"password\": \"pass\"}" http://${VM_IP}:3333/api/v1/credentials
+          while true; do [ $(curl -s "http://localhost:3443/api/v1/sources/${SOURCE_ID}" | jq -r .status | grep up-to-date) ] && break || curl -s "http://localhost:3443/api/v1/sources/${SOURCE_ID}"; sleep 2; done
+          curl http://localhost:3443/api/v1/sources/${SOURCE_ID}

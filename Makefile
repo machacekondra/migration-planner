@@ -10,6 +10,9 @@ MIGRATION_PLANNER_AGENT_IMAGE ?= quay.io/kubev2v/migration-planner-agent
 MIGRATION_PLANNER_API_IMAGE ?= quay.io/kubev2v/migration-planner-api
 MIGRATION_PLANNER_UI_IMAGE ?= quay.io/kubev2v/migration-planner-ui
 DOWNLOAD_RHCOS ?= true
+KUBECTL ?= kubectl
+IFACE ?= eth0
+PODMAN ?= podman
 
 SOURCE_GIT_TAG ?=$(shell git describe --always --long --tags --abbrev=7 --match 'v[0-9]*' || echo 'v0.0.0-unknown-$(SOURCE_GIT_COMMIT)')
 SOURCE_GIT_TREE_STATE ?=$(shell ( ( [ ! -d ".git/" ] || git diff --quiet ) && echo 'clean' ) || echo 'dirty')
@@ -78,10 +81,10 @@ build-api: bin
 
 # rebuild container only on source changes
 bin/.migration-planner-agent-container: bin Containerfile.agent go.mod go.sum $(GO_FILES)
-	podman build -f Containerfile.agent -t $(MIGRATION_PLANNER_AGENT_IMAGE):latest
+	$(PODMAN) build . -f Containerfile.agent -t $(MIGRATION_PLANNER_AGENT_IMAGE):latest
 
 bin/.migration-planner-api-container: bin Containerfile.api go.mod go.sum $(GO_FILES)
-	podman build -f Containerfile.api -t $(MIGRATION_PLANNER_API_IMAGE):latest
+	$(PODMAN) build . -f Containerfile.api -t $(MIGRATION_PLANNER_API_IMAGE):latest
 
 migration-planner-api-container: bin/.migration-planner-api-container
 migration-planner-agent-container: bin/.migration-planner-agent-container
@@ -91,8 +94,16 @@ build-containers: migration-planner-api-container migration-planner-agent-contai
 .PHONY: build-containers
 
 push-containers: build-containers
-	podman push $(MIGRATION_PLANNER_API_IMAGE):latest
-	podman push $(MIGRATION_PLANNER_AGENT_IMAGE):latest
+	$(PODMAN) push $(MIGRATION_PLANNER_API_IMAGE):latest
+	$(PODMAN) push $(MIGRATION_PLANNER_AGENT_IMAGE):latest
+
+deploy-on-kind:
+	sed 's|@MIGRATION_PLANNER_API_IMAGE@|$(MIGRATION_PLANNER_API_IMAGE)|g' deploy/k8s/migration-planner.yaml.template > deploy/k8s/migration-planner.yaml
+	$(KUBECTL) apply -f 'deploy/k8s/*-service.yaml'
+	$(KUBECTL) apply -f 'deploy/k8s/*-secret.yaml'
+	@config_server=$$(ip addr show ${IFACE}| grep -oP '(?<=inet\s)\d+\.\d+\.\d+\.\d+'); \
+	$(KUBECTL) create secret generic migration-planner-secret --from-literal=config_server=http://$$config_server:7443 || true
+	$(KUBECTL) apply -f deploy/k8s/
 
 deploy-on-openshift:
 	sed 's|@MIGRATION_PLANNER_API_IMAGE@|$(MIGRATION_PLANNER_API_IMAGE)|g' deploy/k8s/migration-planner.yaml.template > deploy/k8s/migration-planner.yaml
