@@ -22,6 +22,7 @@ type Source struct {
 	Inventory  *JSONField[api.Inventory] `gorm:"type:jsonb"`
 	CredUrl    *string
 	Agents     []Agent `gorm:"constraint:OnDelete:SET NULL;"`
+	Username   string
 }
 
 type SourceList []Source
@@ -31,8 +32,8 @@ func (s Source) String() string {
 	return string(val)
 }
 
-func NewSourceFromApiCreateResource(resource *api.SourceCreate) *Source {
-	return &Source{ID: uuid.New(), Name: resource.Name, SshKey: resource.SshKey}
+func NewSourceFromApiCreateResource(resource *api.SourceCreate, username string) *Source {
+	return &Source{ID: uuid.New(), Name: resource.Name, SshKey: resource.SshKey, Username: username}
 }
 
 func NewSourceFromId(id uuid.UUID) *Source {

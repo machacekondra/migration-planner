@@ -13,8 +13,8 @@ import (
 )
 
 type Source interface {
-	List(ctx context.Context) (api.SourceList, error)
-	Create(ctx context.Context, sourceCreate api.SourceCreate) (*api.Source, error)
+	List(ctx context.Context, username string) (api.SourceList, error)
+	Create(ctx context.Context, sourceCreate api.SourceCreate, username string) (*api.Source, error)
 	DeleteAll(ctx context.Context) error
 	Get(ctx context.Context, id uuid.UUID) (*api.Source, error)
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -38,17 +38,19 @@ func (s *SourceStore) InitialMigration(ctx context.Context) error {
 	return s.getDB(ctx).AutoMigrate(&model.Source{})
 }
 
-func (s *SourceStore) List(ctx context.Context) (api.SourceList, error) {
+func (s *SourceStore) List(ctx context.Context, username string) (api.SourceList, error) {
 	var sources model.SourceList
-	result := s.getDB(ctx).Model(&sources).Order("id").Find(&sources)
+	result := s.getDB(ctx).Model(&sources).
+		Where("username = ?", username).
+		Order("id").Find(&sources)
 	if result.Error != nil {
 		return nil, result.Error
 	}
 	return sources.ToApiResource(), nil
 }
 
-func (s *SourceStore) Create(ctx context.Context, sourceCreate api.SourceCreate) (*api.Source, error) {
-	source := model.NewSourceFromApiCreateResource(&sourceCreate)
+func (s *SourceStore) Create(ctx context.Context, sourceCreate api.SourceCreate, username string) (*api.Source, error) {
+	source := model.NewSourceFromApiCreateResource(&sourceCreate, username)
 	result := s.getDB(ctx).Create(source)
 	if result.Error != nil {
 		return nil, result.Error

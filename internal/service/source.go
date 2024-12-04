@@ -4,10 +4,15 @@ import (
 	"context"
 
 	"github.com/kubev2v/migration-planner/internal/api/server"
+	"github.com/kubev2v/migration-planner/internal/auth"
 )
 
 func (h *ServiceHandler) ListSources(ctx context.Context, request server.ListSourcesRequestObject) (server.ListSourcesResponseObject, error) {
-	result, err := h.store.Source().List(ctx)
+	username, ok := ctx.Value(auth.UsernameKey).(string)
+	if !ok {
+		return server.ListSources401JSONResponse{Message: "Error fetching username"}, nil
+	}
+	result, err := h.store.Source().List(ctx, username)
 	if err != nil {
 		return nil, err
 	}
@@ -15,7 +20,11 @@ func (h *ServiceHandler) ListSources(ctx context.Context, request server.ListSou
 }
 
 func (h *ServiceHandler) CreateSource(ctx context.Context, request server.CreateSourceRequestObject) (server.CreateSourceResponseObject, error) {
-	result, err := h.store.Source().Create(ctx, *request.Body)
+	username, ok := ctx.Value(auth.UsernameKey).(string)
+	if !ok {
+		return server.CreateSource401JSONResponse{Message: "Error fetching username"}, nil
+	}
+	result, err := h.store.Source().Create(ctx, *request.Body, username)
 	if err != nil {
 		return server.CreateSource400JSONResponse{Message: err.Error()}, nil
 	}
