@@ -5,14 +5,21 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"net/http"
+	"strconv"
 
+	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 	api "github.com/kubev2v/migration-planner/api/v1alpha1"
 	agentServer "github.com/kubev2v/migration-planner/internal/api/server/agent"
 	"github.com/kubev2v/migration-planner/internal/auth"
 	"github.com/kubev2v/migration-planner/internal/events"
+	"github.com/kubev2v/migration-planner/internal/image"
 	"github.com/kubev2v/migration-planner/internal/service/mappers"
 	"github.com/kubev2v/migration-planner/internal/store"
+	"github.com/kubev2v/migration-planner/internal/store/model"
 	"github.com/kubev2v/migration-planner/pkg/metrics"
 	"go.uber.org/zap"
 )
@@ -32,6 +39,48 @@ func NewAgentServiceHandler(store store.Store, ew *events.EventProducer) *AgentS
 	}
 }
 
+func (h *AgentServiceHandler) GetImageByToken(ctx context.Context, req agentServer.GetImageByTokenRequestObject) (agentServer.GetImageByTokenResponseObject, error) {
+	writer, ok := ctx.Value(image.ResponseWriterKey).(http.ResponseWriter)
+	if !ok {
+		return agentServer.GetImageByToken500JSONResponse{Message: "error creating the HTTP stream"}, nil
+	}
+
+	if err := image.ValidateToken(req.Token, h.getSourceKey); err != nil {
+		return agentServer.GetImageByToken401JSONResponse{Message: err.Error()}, nil
+	}
+
+	sourceId, err := image.IdFromJWT(req.Token)
+	if err != nil {
+		return nil, fmt.Errorf("error creating the HTTP stream")
+	}
+	source, err := h.getSource(ctx, sourceId)
+	if err != nil {
+		return agentServer.GetImageByToken401JSONResponse{Message: "error creating the HTTP stream"}, nil
+	}
+
+	ova := &image.Ova{SshKey: source.SshPublicKey, SourceID: source.ID, Writer: writer}
+	// Calculate the size of the OVA, so the download show estimated time:
+	size, err := ova.OvaSize()
+	if err != nil {
+		return agentServer.GetImageByToken500JSONResponse{Message: "error creating the HTTP stream"}, nil
+	}
+
+	// Set proper headers of the OVA file:
+	writer.Header().Set("Content-Type", "application/ovf")
+	writer.Header().Set("Content-Length", strconv.Itoa(size))
+	writer.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", req.Name))
+
+	// Generate the OVA image
+	if err := ova.Generate(); err != nil {
+		metrics.IncreaseOvaDownloadsTotalMetric("failed")
+		return agentServer.GetImageByToken500JSONResponse{Message: fmt.Sprintf("error generating image %s", err)}, nil
+	}
+
+	metrics.IncreaseOvaDownloadsTotalMetric("successful")
+
+	return agentServer.GetImageByToken200ApplicationoctetStreamResponse{Body: bytes.NewReader([]byte{})}, nil
+}
+
 /*
 UpdateSourceInventory updates source inventory
 
@@ -43,9 +92,10 @@ This implements the SingleModel logic:
 - if the source has no inventory yet, set the vCenterID and AssociatedAgentID to this source.
 */
 func (h *AgentServiceHandler) UpdateSourceInventory(ctx context.Context, request agentServer.UpdateSourceInventoryRequestObject) (agentServer.UpdateSourceInventoryResponseObject, error) {
+	// start new transaction
 	source, err := h.store.Source().Get(ctx, request.Id)
 	if err != nil {
-		if errors.Is(store.ErrRecordNotFound, err) {
+		if errors.Is(err, store.ErrRecordNotFound) {
 			return agentServer.UpdateSourceInventory404JSONResponse{}, nil
 		}
 		return agentServer.UpdateSourceInventory500JSONResponse{}, nil
@@ -101,7 +151,7 @@ func (h *AgentServiceHandler) UpdateAgentStatus(ctx context.Context, request age
 
 	source, err := h.store.Source().Get(ctx, request.Body.SourceId)
 	if err != nil {
-		if errors.Is(store.ErrRecordNotFound, err) {
+		if errors.Is(err, store.ErrRecordNotFound) {
 			return agentServer.UpdateAgentStatus400JSONResponse{}, nil
 		}
 		return agentServer.UpdateAgentStatus500JSONResponse{}, nil
@@ -202,4 +252,36 @@ func (h *AgentServiceHandler) newInventoryEvent(sourceID string, inventory api.I
 	data, _ := json.Marshal(event)
 
 	return events.InventoryMessageKind, bytes.NewReader(data)
+}
+
+func (h *AgentServiceHandler) getSourceKey(token *jwt.Token) (interface{}, error) {
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, fmt.Errorf("malformed token claims")
+	}
+
+	sourceId, ok := claims["sub"].(string)
+	if !ok {
+		return nil, fmt.Errorf("token missing 'sub' claim")
+	}
+
+	source, err := h.getSource(context.TODO(), sourceId)
+	if err != nil {
+		return agentServer.GetImageByToken500JSONResponse{Message: "invalid source ID"}, nil
+	}
+
+	return []byte(source.ImageTokenKey), nil
+}
+
+func (h *AgentServiceHandler) getSource(ctx context.Context, sourceId string) (*model.Source, error) {
+	sourceUUID, err := uuid.Parse(sourceId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid source ID")
+	}
+	source, err := h.store.Source().Get(ctx, sourceUUID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid source ID")
+	}
+
+	return source, nil
 }
