@@ -26,7 +26,7 @@ var _ = Describe("event handler", Ordered, func() {
 				},
 			}
 
-			srv := service.NewServiceHandler(nil, events.NewEventProducer(eventWriter))
+			srv := service.NewServiceHandler(nil, events.NewEventProducer(eventWriter), nil)
 			resp, err := srv.PushEvents(context.TODO(), server.PushEventsRequestObject{
 				Body: &reqBody,
 			})

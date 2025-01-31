@@ -67,7 +67,7 @@ var _ = Describe("source handler", Ordered, func() {
 			}
 			ctx := auth.NewUserContext(context.TODO(), user)
 
-			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter))
+			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter), nil)
 			resp, err := srv.ListSources(ctx, server.ListSourcesRequestObject{})
 			Expect(err).To(BeNil())
 			Expect(reflect.TypeOf(resp).String()).To(Equal(reflect.TypeOf(server.ListSources200JSONResponse{}).String()))
@@ -95,7 +95,7 @@ var _ = Describe("source handler", Ordered, func() {
 			}
 			ctx := auth.NewUserContext(context.TODO(), user)
 
-			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter))
+			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter), nil)
 			resp, err := srv.ListSources(ctx, server.ListSourcesRequestObject{})
 			Expect(err).To(BeNil())
 			Expect(reflect.TypeOf(resp).String()).To(Equal(reflect.TypeOf(server.ListSources200JSONResponse{}).String()))
@@ -123,7 +123,7 @@ var _ = Describe("source handler", Ordered, func() {
 			}
 			ctx := auth.NewUserContext(context.TODO(), user)
 
-			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter))
+			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter), nil)
 			resp, err := srv.CreateSource(ctx, server.CreateSourceRequestObject{
 				Body: &v1alpha1.CreateSourceJSONRequestBody{
 					Name: "test",
@@ -163,7 +163,7 @@ var _ = Describe("source handler", Ordered, func() {
 			ctx := auth.NewUserContext(context.TODO(), user)
 
 			eventWriter := newTestWriter()
-			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter))
+			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter), nil)
 			resp, err := srv.GetSource(ctx, server.GetSourceRequestObject{Id: firstSourceID})
 			Expect(err).To(BeNil())
 			Expect(reflect.TypeOf(resp).String()).To(Equal(reflect.TypeOf(server.GetSource200JSONResponse{}).String()))
@@ -195,7 +195,7 @@ var _ = Describe("source handler", Ordered, func() {
 			ctx := auth.NewUserContext(context.TODO(), user)
 
 			eventWriter := newTestWriter()
-			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter))
+			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter), nil)
 			resp, err := srv.GetSource(ctx, server.GetSourceRequestObject{Id: uuid.New()})
 			Expect(err).To(BeNil())
 			Expect(reflect.TypeOf(resp).String()).To(Equal(reflect.TypeOf(server.GetSource404JSONResponse{}).String()))
@@ -222,7 +222,7 @@ var _ = Describe("source handler", Ordered, func() {
 			ctx := auth.NewUserContext(context.TODO(), user)
 
 			eventWriter := newTestWriter()
-			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter))
+			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter), nil)
 			resp, err := srv.GetSource(ctx, server.GetSourceRequestObject{Id: firstSourceID})
 			Expect(err).To(BeNil())
 			Expect(reflect.TypeOf(resp).String()).To(Equal(reflect.TypeOf(server.GetSource403JSONResponse{}).String()))
@@ -250,7 +250,7 @@ var _ = Describe("source handler", Ordered, func() {
 			Expect(tx.Error).To(BeNil())
 
 			eventWriter := newTestWriter()
-			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter))
+			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter), nil)
 			_, err := srv.DeleteSources(context.TODO(), server.DeleteSourcesRequestObject{})
 			Expect(err).To(BeNil())
 
@@ -276,7 +276,7 @@ var _ = Describe("source handler", Ordered, func() {
 			ctx := auth.NewUserContext(context.TODO(), user)
 
 			eventWriter := newTestWriter()
-			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter))
+			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter), nil)
 			_, err := srv.DeleteSource(ctx, server.DeleteSourceRequestObject{Id: firstSourceID})
 			Expect(err).To(BeNil())
 
@@ -307,7 +307,7 @@ var _ = Describe("source handler", Ordered, func() {
 			}
 			ctx := auth.NewUserContext(context.TODO(), user)
 
-			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter))
+			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter), nil)
 			resp, err := srv.DeleteSource(ctx, server.DeleteSourceRequestObject{Id: firstSourceID})
 			Expect(err).To(BeNil())
 			Expect(reflect.TypeOf(resp).String()).To(Equal(reflect.TypeOf(server.DeleteSource403JSONResponse{}).String()))
@@ -332,7 +332,7 @@ var _ = Describe("source handler", Ordered, func() {
 			ctx := auth.NewUserContext(context.TODO(), user)
 
 			eventWriter := newTestWriter()
-			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter))
+			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter), nil)
 			resp, err := srv.UpdateSource(ctx, server.UpdateSourceRequestObject{
 				Id: firstSourceID,
 				Body: &v1alpha1.SourceUpdateOnPrem{
@@ -376,7 +376,7 @@ var _ = Describe("source handler", Ordered, func() {
 			ctx := auth.NewUserContext(context.TODO(), user)
 
 			eventWriter := newTestWriter()
-			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter))
+			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter), nil)
 			resp, err := srv.UpdateSource(ctx, server.UpdateSourceRequestObject{
 				Id: firstSourceID,
 				Body: &v1alpha1.SourceUpdateOnPrem{
@@ -427,7 +427,7 @@ var _ = Describe("source handler", Ordered, func() {
 			ctx := auth.NewUserContext(context.TODO(), user)
 
 			eventWriter := newTestWriter()
-			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter))
+			srv := service.NewServiceHandler(s, events.NewEventProducer(eventWriter), nil)
 			resp, err := srv.UpdateSource(ctx, server.UpdateSourceRequestObject{
 				Id: firstSourceID,
 				Body: &v1alpha1.SourceUpdateOnPrem{
