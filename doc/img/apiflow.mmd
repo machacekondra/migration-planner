@@ -1,0 +1,52 @@
+graph TB
+    User((User))
+    Console[Assisted installer]
+    subgraph subGraph0["Openshift Console"]
+		n1@{ shape: "stadium", label: "UI" }
+		n6["Image API"]
+		n5@{ shape: "hex", label: "API gateway" }
+		n4@{ shape: "cyl", label: "Database" }
+		n2["Service API"]
+        Console["Migration assessment"]
+    end
+
+    User
+    User
+    User
+
+    classDef service fill:#f96,stroke:#333,stroke-width:2px
+    classDef ui fill:#9cf,stroke:#333,stroke-width:2px
+    classDef agent fill:#9f9,stroke:#333,stroke-width:2px
+    classDef infra fill:#fcf,stroke:#333,stroke-width:2px
+    class Service service
+    class MainUI,AgentUI ui
+    class Agent agent
+    class VCenter infra
+	Console["Migration assessment agent API"]
+	Console["Agent API"]
+	User
+	User
+	User
+	subGraph0
+	User
+	n2
+	n3@{ shape: "circle", label: "Agent" }
+	style User color:#000000,fill:#FFDE59
+	style n3 fill:#FFDE59
+	n4
+	n2
+	Console --- n4
+	n2 --- n4
+	n3 --- n5
+	n5 --- Console
+	style n5 fill:#8C52FF
+	User
+	n6
+	n5 --- n6
+	User
+	n5
+	n6 --- n4
+	User
+	User --- n1
+	n1 --- n2
+	User --- n5
