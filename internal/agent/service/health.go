@@ -70,7 +70,6 @@ func NewHealthChecker(client client.Planner, logFolder string, checkInterval tim
 // [2024-09-27T15:54:13+02:00] console.redhat.com is unreachable.
 // [2024-09-27T15:54:15+02:00] console.redhat.com is OK.
 //
-//
 // client is the rest client used to send requests to console.redhat.com.
 // logFile is the path of the log file.
 // initialInterval represents the time after which the check is started.
@@ -115,7 +114,7 @@ func (h *HealthChecker) do(ctx context.Context) {
 
 	err := h.client.Health(ctx)
 	if err != nil {
-		if _, err := h.logFile.Write([]byte(fmt.Sprintf("[%s] console.redhat.com is unreachable.\n", time.Now().Format(time.RFC3339)))); err != nil {
+		if _, err := h.logFile.Write([]byte(fmt.Sprintf("[%s] console.redhat.com is unreachable: %s\n", time.Now().Format(time.RFC3339), err))); err != nil {
 			zap.S().Named("health").Errorf("failed to write to log file %s %w", h.logFilepath, err)
 		}
 		h.lock.Lock()
